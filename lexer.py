@@ -16,15 +16,40 @@ class Token:
 # 词法分析器类
 class PL0Lexer:
     def __init__(self, filename):
-        self.input = open(filename, 'r')
-        self.current_char = ' '
+        # with open(filename, 'r') as file:
+        #     self.source = file.read()  # 将文件内容读取为字符串
+        self.input = open(filename, 'r', encoding='utf-8')  # 输入文件流
+        self.current_char = ' '  # 当前字符
         self.keywords = ["PROGRAM", "BEGIN", "END", "CONST", "VAR", "WHILE", "DO", "IF", "THEN"]
-        self.current_token = None
+        self.current_token = None  # 当前词法单元
+        self.line = 1  # 词法分析结果增加行列信息，用于错误处理
+        self.col = 1
 
-    # 获取下一个字符
+    # 返回当前行列数
+    def get_line(self):
+        return self.line
+
+    def get_col(self):
+        return self.col
+
+    # 计算当前行列数
+    # def advance(self):
+    #     if self.source[self.position] == '\n':
+    #         self.line += 1
+    #         self.col = 1
+    #     else:
+    #         self.col += 1
+    #     self.position += 1
+
+    # 获取下一个字符，同时记录这个字符所在的行列数
     def get_next_char(self):
         char = self.input.read(1)
         self.current_char = char
+        if self.current_char == '\n':  # 读到换行符，则行数加一
+            self.line += 1
+            self.col = 1
+        else:  # 否则列数加一
+            self.col += 1
 
     # 跳过空白字符
     def skip_whitespace(self):
@@ -49,6 +74,7 @@ class PL0Lexer:
     def scan_number(self):
         integer = ''
         while self.current_char.isdigit():
+
             integer += self.current_char
             self.get_next_char()
         return Token(TokenType.NUMBER, integer)
