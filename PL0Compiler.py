@@ -54,15 +54,14 @@ class SyntaxError(Exception):
 
 # 语法分析器（包含中间代码生成）
 class PL0Parser:
-    def __init__(self, tokens, filename_0):
-        self.token_list = tokens  # 词法分析结果列表
-        self.current_index = 0  # 当前处理的词法单元索引
+    def __init__(self, filename):
+        self.lexer = PL0Lexer(filename)  # 创建词法分析器实例
+        self.current_token = self.lexer.get_next_token()  # 当前词法单元
         self.intermediate_code_list = []  # 中间代码列表
         self.intermediate_code_index = 0  # 中间代码索引
         # 创建 InterCodeGen 的实例
         self.inter_code_gen = InterCodeGen()
-        # 创建词法分析器实例
-        self.PL0Lexer = PL0Lexer(filename_0)
+
 
     # 开始语法分析
     def parse(self):
@@ -70,7 +69,7 @@ class PL0Parser:
 
     # 语法错误信息
     def raise_syntax_error(self, message):
-        raise SyntaxError(message, self.PL0Lexer.get_line(), self.PL0Lexer.get_col())
+        raise SyntaxError(message, self.lexer.get_line(), self.lexer.get_col())
 
     # # 在类中增加获取当前行列的方法
     # def get_line(self):
@@ -81,16 +80,17 @@ class PL0Parser:
 
     # 匹配当前词法单元，并将 currentIndex 移至下一个单元
     def match(self, expected_type):
-        if self.current_index < len(self.token_list) and self.token_list[self.current_index].type == expected_type:
-            print("self.token_list[self.current_index].type")
-            print(self.token_list[self.current_index].type)
+        if self.current_token and self.current_token.type == expected_type:
+            print("self.current_token.type")
+            print(self.current_token.type)
             print("expected_type")
             print(expected_type)
-            if self.current_index < len(self.token_list) - 1:  # 读到最后一句时指针不再后移
-                self.current_index += 1
+            # if self.current_index < len(self.token_list) - 1:  # 读到最后一句时指针不再后移
+            #     self.current_index += 1
+            self.current_token = self.lexer.get_next_token()  # 读取下一个词法单元。如果读完文件，current_token的值为False
         else:
             # 处理错误，可以输出错误信息或进行其他错误处理
-            self.raise_syntax_error(f"Unexpected token: {self.token_list[self.current_index].type}"
+            self.raise_syntax_error(f"Unexpected token: {self.current_token.type}"
                                     f". Expected: {expected_type}")
             pass
 
@@ -114,11 +114,11 @@ class PL0Parser:
     # <分程序>->[<常量说明>][<变量说明>]<语句>（注：[ ]中的项表示可选）
     def subprogram(self):
         # 如果是常量说明
-        if self.token_list[self.current_index].type == TokenType.CONSTSYM:
+        if self.current_token.type == TokenType.CONSTSYM:
             self.constant_declaration()
 
         # 如果是变量说明
-        if self.token_list[self.current_index].type == TokenType.VARSYM:
+        if self.current_token.type == TokenType.VARSYM:
             self.variable_declaration()
 
         # 解析语句
@@ -132,7 +132,7 @@ class PL0Parser:
         self.constant_definition()
 
         # 解析额外的常量定义(如果有的话)
-        while self.token_list[self.current_index].type == TokenType.COMMASYM:
+        while self.current_token.type == TokenType.COMMASYM:
             self.match(TokenType.COMMASYM)
             self.constant_definition()
 
@@ -154,7 +154,7 @@ class PL0Parser:
         self.match(TokenType.NUMBER)
 
         # 匹配额外的数字
-        while self.token_list[self.current_index].type == TokenType.NUMBER:
+        while self.current_token.type == TokenType.NUMBER:
             self.match(TokenType.NUMBER)
 
     # <变量说明> -> VAR <标识符>{, <标识符>};
@@ -165,7 +165,7 @@ class PL0Parser:
         self.identifier()
 
         # 循环解析额外的标识符(如果有的话)
-        while self.token_list[self.current_index].type == TokenType.COMMASYM:
+        while self.current_token.type == TokenType.COMMASYM:
             self.match(TokenType.COMMASYM)  # 匹配逗号
             self.identifier()  # 匹配标识符
 
@@ -178,11 +178,11 @@ class PL0Parser:
         self.match(TokenType.IDENT)
 
         # 循环解析额外的字母或数字
-        while self.token_list[self.current_index].type == TokenType.IDENT \
-                or self.token_list[self.current_index].type == TokenType.NUMBER:
-            if self.token_list[self.current_index].type == TokenType.IDENT:
+        while self.current_token.type == TokenType.IDENT \
+                or self.current_token.type == TokenType.NUMBER:
+            if self.current_token.type == TokenType.IDENT:
                 self.match(TokenType.IDENT)  # 匹配字母
-            elif self.token_list[self.current_index].type == TokenType.NUMBER:
+            elif self.current_token.type == TokenType.NUMBER:
                 self.match(TokenType.NUMBER)  # 匹配数字
 
     # <复合语句> -> BEGIN <语句>{; <语句>} END
@@ -191,18 +191,18 @@ class PL0Parser:
         self.statements()  # 解析第一个语句
 
         # 解析以分号分隔的附加语句
-        while self.token_list[self.current_index].type == TokenType.SEMICOLONSYM:
+        while self.current_token.type == TokenType.SEMICOLONSYM:
             self.match(TokenType.SEMICOLONSYM)
             self.statements()
 
-        if self.token_list[self.current_index].type == TokenType.ENDSYM:
+        if self.current_token.type == TokenType.ENDSYM:
             self.match(TokenType.ENDSYM)  # 匹配关键字 END
         else:
             self.raise_syntax_error("复合语句格式错误")
 
     # <语句> -> <赋值语句> | <条件语句> | <循环语句> | <复合语句> | <空语句>
     def statements(self):
-        current_token_type = self.token_list[self.current_index].type
+        current_token_type = self.current_token.type
 
         # 检查当前符号的类型并调用相应的函数
         if current_token_type == TokenType.IDENT:
@@ -222,7 +222,7 @@ class PL0Parser:
     # <赋值语句> -> <标识符> := <表达式>
     # 赋值语句 需要进行中间代码生成
     def assignment_statement(self):
-        var_name = self.token_list[self.current_index].value  # 获取标识符的名称
+        var_name = self.current_token.value  # 获取标识符的名称
         print(var_name)
         self.identifier()  # 匹配标识符
         self.match(TokenType.BECOMESSYM)  # 匹配 :=
@@ -233,15 +233,15 @@ class PL0Parser:
     # <表达式> -> [+|-]项 | <表达式> <加法运算符> <项>
     def expression(self):
         # 是否是+、-号
-        if self.token_list[self.current_index].type in [TokenType.PLUSSYM, TokenType.MINUSSYM]:
-            self.match(self.token_list[self.current_index].type)
+        if self.current_token.type in [TokenType.PLUSSYM, TokenType.MINUSSYM]:
+            self.match(self.current_token.type)
 
         # 解析第一个项
         term_result = self.term()
 
         # 循环解析表达式
-        while self.is_addition_operator(self.token_list[self.current_index].type):
-            self.match(self.token_list[self.current_index].type)
+        while self.is_addition_operator(self.current_token.type):
+            self.match(self.current_token.type)
             self.term()
 
         return term_result
@@ -250,8 +250,8 @@ class PL0Parser:
     def term(self):
         factor_result = self.factor()
 
-        while self.is_multiplication_operator(self.token_list[self.current_index].type):
-            self.match(self.token_list[self.current_index].type)
+        while self.is_multiplication_operator(self.current_token.type):
+            self.match(self.current_token.type)
             self.factor()
 
         return factor_result
@@ -259,18 +259,18 @@ class PL0Parser:
     # 测试简单的赋值语句
     # < 因子 > -> < 标识符 > | < 无符号整数 > | (< 表达式 >)
     def factor(self):
-        if self.token_list[self.current_index].type == TokenType.IDENT:
+        if self.current_token.type == TokenType.IDENT:
             print("var")
-            var_name = self.token_list[self.current_index].value
+            var_name = self.current_token.value
             self.identifier()
             return var_name  # 返回标识符
-        elif self.token_list[self.current_index].type == TokenType.NUMBER:
+        elif self.current_token.type == TokenType.NUMBER:
             print("const")
-            num_value = self.token_list[self.current_index].value
+            num_value = self.current_token.value
             self.match(TokenType.NUMBER)
             return num_value  # 返回数字值
         # 识别表达式
-        elif self.token_list[self.current_index].type == TokenType.LPARENSYM:
+        elif self.current_token.type == TokenType.LPARENSYM:
             self.match(TokenType.LPARENSYM)
             expr_result = self.expression()
             self.match(TokenType.RPARENSYM)  # 否则缺少右括号
@@ -312,7 +312,7 @@ class PL0Parser:
 
     # <关系运算符> → = | <> | < | <= | > | >=
     def relational_operator(self):
-        token_type = self.token_list[self.current_index].type
+        token_type = self.current_token.type
         if token_type in [TokenType.EQLSYM, TokenType.NEQSYM, TokenType.LESSYM, TokenType.LEQSYM, TokenType.GTRSYM,
                           TokenType.GEQSYM]:
             self.match(token_type)
@@ -324,18 +324,6 @@ class PL0Parser:
 
 if __name__ == "__main__":
     filename = "pl0_program.txt"
-    lexer = PL0Lexer(filename)
 
-    token_list = []
-    while lexer.current_char:
-        token = lexer.get_next_token()
-        token_list.append(token)
-
-        # 打印token信息
-        print(f"({token.type}, {token.value})")
-
-    lexer.input.close()
-    # print("token_list：")
-    # print(token_list)
-    parser = PL0Parser(token_list, filename)
+    parser = PL0Parser(filename)
     parser.parse()

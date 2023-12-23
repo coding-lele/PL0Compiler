@@ -152,18 +152,31 @@ class PL0Lexer:
     def get_next_token(self):
         self.skip_whitespace()
 
-        if self.current_char.isalpha():
-            return self.scan_identifier_or_keyword()
-        elif self.current_char.isdigit():
-            return self.scan_number()
-        elif self.current_char in ['+', '-', '*', '/']:
-            return self.scan_operator()
-        elif self.current_char == ':':
-            return self.scan_becomes_or_error()
-        elif self.current_char in ['=', '<', '>']:
-            return self.scan_relational_operator()
-        elif self.current_char in ['(', ')', ',', ';']:
-            return self.scan_delimiter()
+        if self.current_char:
+            if self.current_char.isalpha():
+                return self.scan_identifier_or_keyword()
+            elif self.current_char.isdigit():
+                return self.scan_number()
+            elif self.current_char in ['+', '-', '*', '/']:
+                return self.scan_operator()
+            elif self.current_char == ':':
+                return self.scan_becomes_or_error()
+            elif self.current_char in ['=', '<', '>']:
+                return self.scan_relational_operator()
+            elif self.current_char in ['(', ')', ',', ';']:
+                return self.scan_delimiter()
+            else:
+                return self.scan_error()
         else:
-            return self.scan_error()
+            return False  # 读完输入文件时返回False
 
+
+if __name__ == "__main__":
+    filename = "pl0_program.txt"
+    lexer = PL0Lexer(filename)
+
+    while token := lexer.get_next_token():
+        # 打印token信息
+        print(f"({token.type}, {token.value})")
+
+    lexer.input.close()
