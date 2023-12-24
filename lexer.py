@@ -30,26 +30,24 @@ class PL0Lexer:
         return self.line
 
     def get_col(self):
-        return self.col
-
-    # 计算当前行列数
-    # def advance(self):
-    #     if self.source[self.position] == '\n':
-    #         self.line += 1
-    #         self.col = 1
-    #     else:
-    #         self.col += 1
-    #     self.position += 1
+        return self.col - 1
 
     # 获取下一个字符，同时记录这个字符所在的行列数
     def get_next_char(self):
         char = self.input.read(1)
+
         self.current_char = char
         if self.current_char == '\n':  # 读到换行符，则行数加一
             self.line += 1
-            self.col = 1
+            self.col = 0
+        elif self.current_char.isspace():  # 读到空格
+            self.col = self.col
         else:  # 否则列数加一
             self.col += 1
+        # if self.current_char == '\n':
+        #     print("char:", "换行符", "line:", self.line, "col:", self.col)
+        # else:
+        #     print("char:", char, "line:", self.line, "col:", self.col)
 
     # 跳过空白字符
     def skip_whitespace(self):
@@ -63,6 +61,9 @@ class PL0Lexer:
             identifier += self.current_char
             self.get_next_char()
 
+        # print("identifier:", identifier, "self.current_char:", "换行符", "长度", len(identifier))
+        if self.current_char != '\n':
+            self.col -= (len(identifier) - 1)  # 如果碰到换行符，在col=0之后又减去了这个长度
         # 判断是否是关键字
         if identifier in self.keywords:
             return Token(self.keywords.index(identifier), identifier)
@@ -77,6 +78,7 @@ class PL0Lexer:
 
             integer += self.current_char
             self.get_next_char()
+            self.col -= len(integer) - 1
         return Token(TokenType.NUMBER, integer)
 
     # 识别运算符
@@ -102,6 +104,7 @@ class PL0Lexer:
         if self.current_char == '=':
             op += self.current_char
             self.get_next_char()
+            self.col -= len(op) - 1
             return Token(TokenType.BECOMESSYM, op)
         else:
             return self.scan_error()
@@ -125,6 +128,7 @@ class PL0Lexer:
             '>=': TokenType.GEQSYM
         }
 
+        self.col -= len(op) - 1
         return Token(relational_operators[op], op) if op in relational_operators else self.scan_error()
 
     # 识别界符

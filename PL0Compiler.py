@@ -62,7 +62,6 @@ class PL0Parser:
         # 创建 InterCodeGen 的实例
         self.inter_code_gen = InterCodeGen()
 
-
     # 开始语法分析
     def parse(self):
         self.program()
@@ -71,23 +70,15 @@ class PL0Parser:
     def raise_syntax_error(self, message):
         raise SyntaxError(message, self.lexer.get_line(), self.lexer.get_col())
 
-    # # 在类中增加获取当前行列的方法
-    # def get_line(self):
-    #     return self.PL0Lexer.get_line()
-    #
-    # def get_col(self):
-    #     return self.PL0Lexer.get_col()
-
     # 匹配当前词法单元，并将 currentIndex 移至下一个单元
     def match(self, expected_type):
         if self.current_token and self.current_token.type == expected_type:
-            print("self.current_token.type")
-            print(self.current_token.type)
-            print("expected_type")
-            print(expected_type)
+            # print("self.current_token.type: ", self.current_token.type)
+            # print("expected_type: ", expected_type)
             # if self.current_index < len(self.token_list) - 1:  # 读到最后一句时指针不再后移
             #     self.current_index += 1
             self.current_token = self.lexer.get_next_token()  # 读取下一个词法单元。如果读完文件，current_token的值为False
+            # print("现在获取下一个字符是：", self.current_token.value)
         else:
             # 处理错误，可以输出错误信息或进行其他错误处理
             self.raise_syntax_error(f"Unexpected token: {self.current_token.type}"
@@ -137,7 +128,11 @@ class PL0Parser:
             self.constant_definition()
 
         # 匹配结尾的分号
-        self.match(TokenType.SEMICOLONSYM)
+        if self.current_token.type == TokenType.SEMICOLONSYM:
+            self.match(TokenType.SEMICOLONSYM)
+        else:
+            raise SyntaxError("常量说明缺少分号", self.lexer.get_line() - 2, self.lexer.get_col())
+            # self.raise_syntax_error("常量说明缺少分号")
 
     # <常量定义> -> <标识符> = <无符号整数>
     def constant_definition(self):
@@ -170,7 +165,10 @@ class PL0Parser:
             self.identifier()  # 匹配标识符
 
         # 匹配结尾的分号
-        self.match(TokenType.SEMICOLONSYM)
+        if self.current_token.type != TokenType.SEMICOLONSYM:
+            raise SyntaxError("变量说明缺少分号", self.lexer.get_line() - 2, self.lexer.get_col())
+        else:
+            self.match(TokenType.SEMICOLONSYM)
 
     # <标识符> -> <字母>{<字母> | <数字>}
     def identifier(self):
