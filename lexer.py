@@ -30,7 +30,7 @@ class PL0Lexer:
         return self.line
 
     def get_col(self):
-        return self.col - 1
+        return self.col  # -1
 
     # 获取下一个字符，同时记录这个字符所在的行列数
     def get_next_char(self):
@@ -44,10 +44,10 @@ class PL0Lexer:
             self.col = self.col
         else:  # 否则列数加一
             self.col += 1
-        # if self.current_char == '\n':
-        #     print("char:", "换行符", "line:", self.line, "col:", self.col)
-        # else:
-        #     print("char:", char, "line:", self.line, "col:", self.col)
+        if self.current_char == '\n':
+            print("char:", "换行符", "line:", self.line, "col:", self.col)
+        else:
+            print("char:", char, "line:", self.line, "col:", self.col)
 
     # 跳过空白字符
     def skip_whitespace(self):

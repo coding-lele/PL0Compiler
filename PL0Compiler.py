@@ -85,10 +85,25 @@ class SyntaxError(Exception):
         self.col = col
 
 
+class pre_pre_Token:
+    def __init__(self):
+        self.line = 0  # 词法单元类型
+        self.col = 0  # 词法单元的值
+
+
+class pre_Token:
+    def __init__(self):
+        self.line = 0  # 词法单元类型
+        self.col = 0  # 词法单元的值
+
+
 # 语法分析器（包含中间代码生成）
 class PL0Parser:
     def __init__(self, filename):
         self.lexer = PL0Lexer(filename)  # 创建词法分析器实例
+       # self.previous = self.lexer.get_next_token()  # 上一个词法单元
+        self.token_info = pre_Token()  # 创建实例
+        self.pre_token_info = pre_pre_Token()  # 创建实例
         self.current_token = self.lexer.get_next_token()  # 当前词法单元
         self.intermediate_code_list = []  # 中间代码列表
         self.intermediate_code_index = 0  # 中间代码索引
@@ -110,6 +125,11 @@ class PL0Parser:
             # print("expected_type: ", expected_type)
             # if self.current_index < len(self.token_list) - 1:  # 读到最后一句时指针不再后移
             #     self.current_index += 1
+            self.pre_token_info.line = self.token_info.line
+            self.pre_token_info.col = self.token_info.col
+            self.token_info.line = self.lexer.get_line()
+            self.token_info.col = self.lexer.get_col()
+            # self.previous = self.current_token
             self.current_token = self.lexer.get_next_token()  # 读取下一个词法单元。如果读完文件，current_token的值为False
             # print("现在获取下一个字符是：", self.current_token.value)
         else:
@@ -165,7 +185,7 @@ class PL0Parser:
         if self.current_token.type == TokenType.SEMICOLONSYM:
             self.match(TokenType.SEMICOLONSYM)
         else:
-            raise SyntaxError("常量说明缺少分号", self.lexer.get_line() - 2, self.lexer.get_col())
+            raise SyntaxError("常量说明缺少分号", self.pre_token_info.line, self.pre_token_info.col + 1)
             # self.raise_syntax_error("常量说明缺少分号")
 
     # 新增修改 常量定义的等号是赋值符号
@@ -230,7 +250,7 @@ class PL0Parser:
 
         # 匹配结尾的分号
         if self.current_token.type != TokenType.SEMICOLONSYM:
-            raise SyntaxError("变量说明缺少分号", self.lexer.get_line() - 2, self.lexer.get_col())
+            raise SyntaxError("变量说明缺少分号", self.pre_token_info.line, self.pre_token_info.col + 1)
         else:
             self.match(TokenType.SEMICOLONSYM)
 
@@ -244,15 +264,6 @@ class PL0Parser:
         #     print("栈内信息：" + item)
         self.match(TokenType.IDENT)
 
-        # 循环解析额外的字母或数字
-        while self.current_token.type == TokenType.IDENT \
-                or self.current_token.type == TokenType.NUMBER:
-
-            if self.current_token.type == TokenType.IDENT:
-                self.match(TokenType.IDENT)  # 匹配字母
-            elif self.current_token.type == TokenType.NUMBER:
-                self.match(TokenType.NUMBER)  # 匹配数字
-
     # <复合语句> -> BEGIN <语句>{; <语句>} END
     def compound_statement(self):
         self.match(TokenType.BEGINSYM)  # 匹配关键字 BEGIN
@@ -265,8 +276,11 @@ class PL0Parser:
 
         if self.current_token.type == TokenType.ENDSYM:
             self.match(TokenType.ENDSYM)  # 匹配关键字 END
+        elif self.current_token.type != TokenType.ENDSYM and self.current_token.type != TokenType.SEMICOLONSYM:
+            # self.raise_syntax_error("复合语句缺少分号")
+            raise SyntaxError("复合语句缺少分号", self.pre_token_info.line, self.pre_token_info.col + 1)
         else:
-            self.raise_syntax_error("复合语句格式错误")
+            self.raise_syntax_error("复合语句格式错误:缺少END")
 
     # <语句> -> <赋值语句> | <条件语句> | <循环语句> | <复合语句> | <空语句>
     def statements(self):
@@ -410,7 +424,8 @@ class PL0Parser:
             self.match(TokenType.RPARENSYM)  # 否则缺少右括号
         else:
             # 处理错误或报告问题
-            self.raise_syntax_error("缺少因子或因子格式错误")
+            # raise SyntaxError("缺少因子或因子格式错误", self.token_info.line, self.token_info.col)
+            raise SyntaxError("缺少因子或因子格式错误", self.pre_token_info.line, self.pre_token_info.col + 1)
             pass
 
     # <加法运算符> -> + | -
@@ -489,7 +504,8 @@ class PL0Parser:
             self.match(token_type)
         else:
             # 处理错误或报告问题
-            self.raise_syntax_error("非法的关系运算符")
+            # self.raise_syntax_error("非法的关系运算符")
+            raise SyntaxError("非法的关系运算符", self.lexer.get_line(), self.lexer.get_col() - 1)
             pass
 
 
