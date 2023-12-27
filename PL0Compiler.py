@@ -52,22 +52,22 @@ class InterCodeGen:
     # 为变量字典添加元素
     def add_var(self, name: str):
         if name in self.var_dict:
-            raise RuntimeError(f'Redefinition in var {name}')
+            raise RuntimeError(f'该变量已存在，重复定义： {name}')
         self.var_dict[name] = ''
 
     # 更新变量字典
     def update_var(self, name: str, value: str):
         if name not in self.var_dict:
             if name in self.const_dict:
-                raise RuntimeError(f'Cannot assign const {name}')
+                raise RuntimeError(f'赋值错误，因为是常量： {name}')
             else:
-                raise RuntimeError(f'NotFound var {name}')
+                raise RuntimeError(f'未定义的变量：{name}')
         self.var_dict[name] = value
 
     # 为常量字典添加元素
     def add_const(self, name: str, value: str):
         if name in self.const_dict:
-            raise RuntimeError(f'Redefinition in const {name}')
+            raise RuntimeError(f'该常量已存在，重复定义： {name}')
         self.const_dict[name] = value
 
     # 构建新临时变量
@@ -410,7 +410,15 @@ class PL0Parser:
     # < 因子 > -> < 标识符 > | < 无符号整数 > | (< 表达式 >)
     def factor(self):
         if self.current_token.type == TokenType.IDENT:
-            # print("var")
+            # 错误处理：检查变量是否定义
+            var_name = self.current_token.value
+            if var_name not in self.inter_code_gen.var_dict:
+                raise RuntimeError(f"未定义的变量：{var_name}")
+
+            # 检查变量是否已赋值
+            if self.inter_code_gen.var_dict[var_name] == '':
+                raise RuntimeError(f"变量 '{var_name}' 在使用前未被赋值")
+            # print("name:"+name)
             self.identifier()
         elif self.current_token.type == TokenType.NUMBER:
             # print("const")
@@ -516,4 +524,3 @@ if __name__ == "__main__":
     parser.parse()
     print("result:")
     print(parser.inter_code_gen)
-
