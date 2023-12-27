@@ -524,3 +524,11 @@ if __name__ == "__main__":
     parser.parse()
     print("result:")
     print(parser.inter_code_gen)
+
+    # 把结果输出到文件中
+    result = parser.inter_code_gen
+    output_filename = "result.txt"
+    with open(output_filename, "w") as output_file:
+        output_file.write(str(result))
+
+    print(f"Result written to {output_filename}")
