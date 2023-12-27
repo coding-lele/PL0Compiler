@@ -3,7 +3,7 @@ class TokenType:
     PROGRAMSYM, BEGINSYM, ENDSYM, CONSTSYM, VARSYM, WHILESYM, DOSYM, IFSYM, THENSYM, \
         IDENT, NUMBER, PLUSSYM, MINUSSYM, TIMESSYM, SLASHSYM, BECOMESSYM, \
         EQLSYM, NEQSYM, LESSYM, GTRSYM, LEQSYM, GEQSYM, \
-        LPARENSYM, RPARENSYM, COMMASYM, SEMICOLONSYM, ERROR = range(27)
+        LPARENSYM, RPARENSYM, COMMASYM, SEMICOLONSYM, ERROR, EOF = range(28)
 
 
 # 结构体，表示一个词法单元
@@ -44,10 +44,10 @@ class PL0Lexer:
             self.col = self.col
         else:  # 否则列数加一
             self.col += 1
-        if self.current_char == '\n':
-            print("char:", "换行符", "line:", self.line, "col:", self.col)
-        else:
-            print("char:", char, "line:", self.line, "col:", self.col)
+        # if self.current_char == '\n':
+        #     print("char:", "换行符", "line:", self.line, "col:", self.col)
+        # else:
+        #     print("char:", char, "line:", self.line, "col:", self.col)
 
     # 跳过空白字符
     def skip_whitespace(self):
@@ -172,7 +172,7 @@ class PL0Lexer:
             else:
                 return self.scan_error()
         else:
-            return False  # 读完输入文件时返回False
+            return Token(TokenType.EOF, 'EOF')  # 读完输入文件时返回EOF
 
 
 if __name__ == "__main__":
