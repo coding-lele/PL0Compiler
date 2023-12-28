@@ -1,7 +1,7 @@
 from lexer import *
 
 class InterCodeGen:
-    # 结构体，表示中间代码的一条指令
+    # IntermediateCode表示中间代码的一条指令
     class IntermediateCode:
         def __init__(self, op, arg1=None, arg2=None, result=None, line=None):
             self.op = op
@@ -13,8 +13,8 @@ class InterCodeGen:
         def __str__(self):
             return (f'{self.line}: '
                     f'({self.op}, '
-                    f'{self.arg1 if self.arg1 else "-"}, '
-                    f'{self.arg2 if self.arg2 else "-"}, '
+                    f'{self.arg1 if self.arg1 else "_"}, '
+                    f'{self.arg2 if self.arg2 else "_"}, '
                     f'{self.result})')
 
         # 地址写回
@@ -42,9 +42,7 @@ class InterCodeGen:
 
     # 生成产生式
     def emit(self, op, result, arg1=None, arg2=None):
-        arg1_str = '_' if arg1 is None else str(arg1)  # 使用下划线表示空
-        arg2_str = '_' if arg2 is None else str(arg2)
-        self.code[self.line_counter] = self.IntermediateCode(op, arg1_str, arg2_str, result, self.line_counter)
+        self.code[self.line_counter] = self.IntermediateCode(op, arg1, arg2, result, self.line_counter)
         # self.code[self.line_counter] = self.IntermediateCode('=', 1, None, 'x', self.line_counter )
         # print(f'emit: {self.code[self.line_counter]}')
         self.line_counter += 1
