@@ -1,5 +1,6 @@
 from lexer import *
 
+
 class InterCodeGen:
     # IntermediateCode表示中间代码的一条指令
     class IntermediateCode:
@@ -28,7 +29,6 @@ class InterCodeGen:
         self.code: dict[int: InterCodeGen.IntermediateCode] = {}  # 用dict便于回填
         self.temp_counter = 0  # 记录当前临时变量
         self.line_counter = 100  # 当前行数
-        self.stack = []  # 用于存储当前读取到的产生式的值
         self.var_dict = {}  # 变量字典
         self.const_dict = {}  # 常量字典
         self.while_stack = []  # 记录循环开始的行和需要回填的行
@@ -75,14 +75,6 @@ class InterCodeGen:
         return temp_var
 
 
-# 错误处理
-class SyntaxError(Exception):
-    def __init__(self, message, line, col):
-        super().__init__(message)
-        self.line = line
-        self.col = col
-
-
 class pre_pre_Token:
     def __init__(self):
         self.line = 0  # 词法单元类型
@@ -99,7 +91,7 @@ class pre_Token:
 class PL0Parser:
     def __init__(self, filename):
         self.lexer = PL0Lexer(filename)  # 创建词法分析器实例
-       # self.previous = self.lexer.get_next_token()  # 上一个词法单元
+        # self.previous = self.lexer.get_next_token()  # 上一个词法单元
         self.token_info = pre_Token()  # 创建实例
         self.pre_token_info = pre_pre_Token()  # 创建实例
         self.current_token = self.lexer.get_next_token()  # 当前词法单元
@@ -111,10 +103,6 @@ class PL0Parser:
     # 开始语法分析
     def parse(self):
         self.program()
-
-    # 语法错误信息
-    def raise_syntax_error(self, message):
-        raise SyntaxError(message, self.lexer.get_line(), self.lexer.get_col())
 
     # 匹配当前词法单元，并将 currentIndex 移至下一个单元
     def match(self, expected_type):
@@ -132,19 +120,15 @@ class PL0Parser:
             # print("现在获取下一个字符是：", self.current_token.value)
         else:
             # 处理错误，可以输出错误信息或进行其他错误处理
-            self.raise_syntax_error(f"Unexpected token: {self.current_token.type}"
-                                    f". Expected: {expected_type}")
+            raise RuntimeError(f"Unexpected token: {self.current_token.type}. Expected: {expected_type}")
             pass
 
     # <程序>-><程序首部><分程序>
     def program(self):
-        try:
-            # 程序首部
-            self.program_header()
-            # 分程序
-            self.subprogram()
-        except SyntaxError as e:
-            print(f"SyntaxError: {e} at line {e.line}, col {e.col}")
+        # 程序首部
+        self.program_header()
+        # 分程序
+        self.subprogram()
 
     # <程序首部>->PROGRAM <标识符>
     def program_header(self):
@@ -183,24 +167,21 @@ class PL0Parser:
         if self.current_token.type == TokenType.SEMICOLONSYM:
             self.match(TokenType.SEMICOLONSYM)
         else:
-            raise SyntaxError("常量说明缺少分号", self.pre_token_info.line, self.pre_token_info.col + 1)
+            raise RuntimeError(
+                f"常量说明缺少分号 at line {self.pre_token_info.line}, col {self.pre_token_info.col + 1}")
             # self.raise_syntax_error("常量说明缺少分号")
 
     # 新增修改 常量定义的等号是赋值符号
     # <常量定义> -> <标识符> := <无符号整数>
     def constant_definition(self):
         # 匹配标识符
-        #self.match(TokenType.IDENT)
-        self.identifier()
+        # self.match(TokenType.IDENT)
+        name = self.identifier()
         # 匹配等号
         self.match(TokenType.BECOMESSYM)
         # 匹配无符号整数
-        self.unsigned_integer()
+        value = self.unsigned_integer()
         # 语义分析
-        if len(self.inter_code_gen.stack) < 2:
-            raise RuntimeError(f"Stack underflow")
-        value = self.inter_code_gen.stack.pop()
-        name = self.inter_code_gen.stack.pop()
         self.inter_code_gen.add_const(name, value)
         self.inter_code_gen.emit(':=', arg1=value, arg2=None, result=name)
 
@@ -208,16 +189,14 @@ class PL0Parser:
     def unsigned_integer(self):
         # 匹配第一个数字
         # print("当前数字：" + self.current_token.value)
-        # 数字入栈
-        self.inter_code_gen.stack.append(self.current_token.value)
-        # 输出栈内信息
-        # for item in self.inter_code_gen.stack:
-        #     print("栈内信息：" + item)
+        number = self.current_token.value
         self.match(TokenType.NUMBER)
 
         # 匹配额外的数字
         while self.current_token.type == TokenType.NUMBER:
             self.match(TokenType.NUMBER)
+
+        return number
 
     # <变量说明> -> VAR <标识符>{, <标识符>};
     def variable_declaration(self):
@@ -225,30 +204,24 @@ class PL0Parser:
         self.match(TokenType.VARSYM)
         last_var_name = self.current_token.value
         # 匹配第一个标识符
-        self.identifier()
+        name = self.identifier()
         # 打印定义的变量
         # print("VAR:" + last_var_name)
         # yuyi 定义变量字典
-        if len(self.inter_code_gen.stack) < 1:
-            raise RuntimeError(f"Stack underflow ")
-        name = self.inter_code_gen.stack.pop()
         self.inter_code_gen.add_var(name)
 
         # 循环解析额外的标识符(如果有的话)
         while self.current_token.type == TokenType.COMMASYM:
             self.match(TokenType.COMMASYM)  # 匹配逗号
             # last_var_name = self.current_token.value
-            self.identifier()  # 匹配标识符
+            name = self.identifier()  # 匹配标识符
             # print("VAR:" + last_var_name)
             # yuyi 定义变量字典
-            if len(self.inter_code_gen.stack) < 1:
-                raise RuntimeError(f"Stack underflow ")
-            name = self.inter_code_gen.stack.pop()
             self.inter_code_gen.add_var(name)
 
         # 匹配结尾的分号
         if self.current_token.type != TokenType.SEMICOLONSYM:
-            raise SyntaxError("变量说明缺少分号", self.pre_token_info.line, self.pre_token_info.col + 1)
+            raise RuntimeError(f"变量说明缺少分号 at line {self.pre_token_info.line},col {self.pre_token_info.col + 1}")
         else:
             self.match(TokenType.SEMICOLONSYM)
 
@@ -256,11 +229,9 @@ class PL0Parser:
     def identifier(self):
         # 匹配第一个字母
         # print("当前标识符名称：" + self.current_token.value)
-        self.inter_code_gen.stack.append(self.current_token.value)
-        # 输出栈内信息
-        # for item in self.inter_code_gen.stack:
-        #     print("栈内信息：" + item)
+        ident = self.current_token.value
         self.match(TokenType.IDENT)
+        return ident
 
     # <复合语句> -> BEGIN <语句>{; <语句>} END
     def compound_statement(self):
@@ -276,9 +247,9 @@ class PL0Parser:
             self.match(TokenType.ENDSYM)  # 匹配关键字 END
         elif self.current_token.type != TokenType.ENDSYM and self.current_token.type != TokenType.SEMICOLONSYM:
             # self.raise_syntax_error("复合语句缺少分号")
-            raise SyntaxError("复合语句缺少分号", self.pre_token_info.line, self.pre_token_info.col + 1)
+            raise RuntimeError(f"复合语句缺少分号 at line {self.pre_token_info.line}, {self.pre_token_info.col + 1}")
         else:
-            self.raise_syntax_error("复合语句格式错误:缺少END")
+            raise RuntimeError(f"复合语句格式错误:缺少END")
 
     # <语句> -> <赋值语句> | <条件语句> | <循环语句> | <复合语句> | <空语句>
     def statements(self):
@@ -296,113 +267,71 @@ class PL0Parser:
         elif current_token_type == TokenType.SEMICOLONSYM or current_token_type == TokenType.ENDSYM:
             pass
         else:
-            self.raise_syntax_error("无法识别该语句种类")
+            raise RuntimeError(f"无法识别该语句种类")
 
     # <赋值语句> -> <标识符> := <表达式>
     # 赋值语句 需要进行中间代码生成
     def assignment_statement(self):
         # var_name = self.current_token.value  # 获取标识符的名称
-        self.identifier()  # 匹配标识符
+        name = self.identifier()  # 匹配标识符
         self.match(TokenType.BECOMESSYM)  # 匹配 :=
-        expr_result = self.expression()  # 匹配表达式
+        value = self.expression()  # 匹配表达式
 
         # 语义处理部分
-        if len(self.inter_code_gen.stack) < 2:
-            raise RuntimeError(f"Stack underflow")
-        value = self.inter_code_gen.stack.pop()
-        name = self.inter_code_gen.stack.pop()
         self.inter_code_gen.update_var(name, value)
         self.inter_code_gen.emit(':=', arg1=value, arg2=None, result=name)
-        #print(1111)
+        # print(1111)
 
     # <表达式> -> [+|-]项 | <表达式> <加法运算符> <项>
     def expression(self):
         flag = 0  # 用于判断是否有加减号
+        op = "+"  # 默认是加号
         # 是否是+、-号
         if self.current_token.type in [TokenType.PLUSSYM, TokenType.MINUSSYM]:
             flag = 1
-            # 把正负号入栈
-            self.inter_code_gen.stack.append(self.current_token.value)
+            op = self.current_token.value
             self.match(self.current_token.type)
 
         # 解析第一个项
-        self.term()
+        current_exp = self.term()
 
         if flag == 1:
-            # 需要对加减号处理 加号不做处理 所以把当前值出栈再入栈就可以
+            # 需要对加减号处理 加号不做处理
             # 对于减号 需要进行减号处理 替换为temp
-            if len(self.inter_code_gen.stack) < 2:
-                raise RuntimeError(f"Stack underflow ")
-            item = self.inter_code_gen.stack.pop()
-            op = self.inter_code_gen.stack.pop()
             if op == '-':
                 temp = self.inter_code_gen.new_temp()
-                self.inter_code_gen.stack.append(temp)
-                self.inter_code_gen.emit(op, temp, item)
-            else:
-                self.inter_code_gen.stack.append(item)
-
-        while_count = 0  # 用于记录循环几次加法
+                self.inter_code_gen.emit(op, temp, current_exp)
+                current_exp = temp
 
         # 循环解析表达式
         # 解析加法运算符
         while self.is_addition_operator(self.current_token.type):
-            while_count += 1
             # 加减法语义入栈
             # print("当前加法运算符:" + self.current_token.value)
             op = self.current_token.value
-            self.inter_code_gen.stack.append(op)
             self.match(self.current_token.type)
-            # 输出栈内信息
-            # for item in self.inter_code_gen.stack:
-            #     print("栈内信息：" + item)
-            self.term()
-
-        # print("while_count:"+str(while_count))
-
-        # 用于循环处理多个+法 如 x+1+2+3+4
-        while while_count != 0:
-            if len(self.inter_code_gen.stack) < 3:
-                raise RuntimeError(f"Stack underflow ")
-            right = self.inter_code_gen.stack.pop()
-            op = self.inter_code_gen.stack.pop()
-            left = self.inter_code_gen.stack.pop()
+            arg = self.term()
             temp = self.inter_code_gen.new_temp()
-            self.inter_code_gen.stack.append(temp)
-            self.inter_code_gen.emit(op, temp, left, right)
-            while_count -= 1
+            self.inter_code_gen.emit(op, temp, current_exp, arg)
+            current_exp = temp
+
+        return current_exp
 
     # <项> -> <因子> | <项> <乘法运算符> <因子>
     def term(self):
-        self.factor()
-
-        while_count = 0  # 用于记录循环几次乘法
+        current_fac = self.factor()
 
         while self.is_multiplication_operator(self.current_token.type):
-            while_count += 1
             # 乘除法语义入栈
             # print("当前乘法运算符:" + self.current_token.value)
             op = self.current_token.value
-            self.inter_code_gen.stack.append(op)
             self.match(self.current_token.type)
-            # 输出栈内信息
-            # for item in self.inter_code_gen.stack:
-            #     print("栈内信息：" + item)
-            self.factor()
-
-        # print("while_count:" + str(while_count))
-
-        # 用于循环处理多个*法
-        while while_count != 0:
-            if len(self.inter_code_gen.stack) < 3:
-                raise RuntimeError(f"Stack underflow ")
-            right = self.inter_code_gen.stack.pop()
-            op = self.inter_code_gen.stack.pop()
-            left = self.inter_code_gen.stack.pop()
+            fac = self.factor()
             temp = self.inter_code_gen.new_temp()
-            self.inter_code_gen.stack.append(temp)
-            self.inter_code_gen.emit(op, temp, left, right)
-            while_count -= 1
+            self.inter_code_gen.emit(op, temp, current_fac, fac)
+            current_fac = temp
+
+        return current_fac
 
     # 测试简单的赋值语句
     # < 因子 > -> < 标识符 > | < 无符号整数 > | (< 表达式 >)
@@ -417,22 +346,25 @@ class PL0Parser:
             if self.inter_code_gen.var_dict[var_name] == '':
                 raise RuntimeError(f"变量 '{var_name}' 在使用前未被赋值")
             # print("name:"+name)
-            self.identifier()
+            fac = self.identifier()
         elif self.current_token.type == TokenType.NUMBER:
             # print("const")
             # 新增修改 数字需要匹配 而不是 直接词法
-            self.unsigned_integer()
+            fac = self.unsigned_integer()
         # 识别表达式
         elif self.current_token.type == TokenType.LPARENSYM:
             # print("express")
             self.match(TokenType.LPARENSYM)
-            self.expression()
+            fac = self.expression()
             self.match(TokenType.RPARENSYM)  # 否则缺少右括号
         else:
             # 处理错误或报告问题
             # raise SyntaxError("缺少因子或因子格式错误", self.token_info.line, self.token_info.col)
-            raise SyntaxError("缺少因子或因子格式错误", self.pre_token_info.line, self.pre_token_info.col + 1)
+            raise RuntimeError(
+                f"缺少因子或因子格式错误at line {self.pre_token_info.line},col {self.pre_token_info.col + 1}")
             pass
+
+        return fac  # 返回因子的值
 
     # <加法运算符> -> + | -
     # 匹配加法运算符，返回true表示成功匹配，否则返回false
@@ -451,9 +383,8 @@ class PL0Parser:
         self.match(TokenType.THENSYM)  # 匹配关键字 THEN
         self.statements()  # 解析语句
         # IF条件句在这里结束了 需要回填
-        if len(self.inter_code_gen.if_stack) < 1:
-            raise RuntimeError(f"Stack underflow ")
-        self.inter_code_gen.code[self.inter_code_gen.if_stack.pop()].write_back(self.inter_code_gen.line_counter)  # 回填 地址当前位linecount
+        self.inter_code_gen.code[self.inter_code_gen.if_stack.pop()].write_back(
+            self.inter_code_gen.line_counter)  # 回填 地址当前位linecount
 
     # <循环语句> → WHILE <条件> DO <语句>
     def loop_statement(self):
@@ -465,8 +396,6 @@ class PL0Parser:
         self.match(TokenType.DOSYM)  # 匹配关键字 DO
         self.statements()  # 解析语句
 
-        if len(self.inter_code_gen.while_stack) < 2:
-            raise RuntimeError(f"Stack underflow ")
         write_back = self.inter_code_gen.while_stack.pop()  # 这是循环假出口的位置
         jump_back = self.inter_code_gen.while_stack.pop()  # 这是循环开始的位置
 
@@ -475,14 +404,9 @@ class PL0Parser:
 
     # <条件> → <表达式> <关系运算符> <表达式>
     def condition(self, flag):
-        self.expression()  # 解析第一个表达式
-        self.relational_operator()  # 解析关系运算符
-        self.expression()  # 解析第二个表达式
-        if len(self.inter_code_gen.stack) < 3:
-            raise RuntimeError(f"Stack underflow ")
-        right = self.inter_code_gen.stack.pop()
-        op = self.inter_code_gen.stack.pop()
-        left = self.inter_code_gen.stack.pop()
+        left = self.expression()  # 解析第一个表达式
+        op = self.relational_operator()  # 解析关系运算符
+        right = self.expression()  # 解析第二个表达式
         # 处理真出口语句
         self.inter_code_gen.emit(f'j{op}', self.inter_code_gen.line_counter + 2, left, right)  # 跳转至真出口，即下下句
         if flag == "IF":
@@ -502,17 +426,14 @@ class PL0Parser:
             # 对关系运算符的栈语义处理
             # print("当前关系运算符："+self.current_token.value)
             op = self.current_token.value
-            self.inter_code_gen.stack.append(op)
-            # 输出栈内信息
-            # for item in self.inter_code_gen.stack:
-            #     print("栈内信息：" + item)
-
             self.match(token_type)
         else:
             # 处理错误或报告问题
             # self.raise_syntax_error("非法的关系运算符")
-            raise SyntaxError("非法的关系运算符", self.lexer.get_line(), self.lexer.get_col() - 1)
+            raise RuntimeError(f"非法的关系运算符 at line {self.lexer.get_line()},col {self.lexer.get_col() - 1}")
             pass
+
+        return op
 
 
 if __name__ == "__main__":
