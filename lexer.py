@@ -57,11 +57,10 @@ class PL0Lexer:
     # 识别关键字或标识符
     def scan_identifier_or_keyword(self):
         identifier = ''
-        while self.current_char.isalnum() or self.current_char == '_':
+        while self.current_char.isalnum():
             identifier += self.current_char
             self.get_next_char()
 
-        # print("identifier:", identifier, "self.current_char:", "换行符", "长度", len(identifier))
         if self.current_char != '\n':
             self.col -= (len(identifier) - 1)  # 如果碰到换行符，在col=0之后又减去了这个长度
         # 判断是否是关键字
@@ -75,7 +74,6 @@ class PL0Lexer:
     def scan_number(self):
         integer = ''
         while self.current_char.isdigit():
-
             integer += self.current_char
             self.get_next_char()
             self.col -= len(integer) - 1
@@ -179,7 +177,11 @@ if __name__ == "__main__":
     filename = "pl0_program.txt"
     lexer = PL0Lexer(filename)
 
-    while token := lexer.get_next_token():
+    while True:
+        token = lexer.get_next_token()
+        # 读完整个文件
+        if token.type == TokenType.EOF:
+            break
         # 打印token信息
         print(f"({token.type}, {token.value})")
 
