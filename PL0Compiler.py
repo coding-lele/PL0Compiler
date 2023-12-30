@@ -54,12 +54,12 @@ class InterCodeGen:
         self.var_dict[name] = ''
 
     # 更新变量字典
-    def update_var(self, name: str, value: str):
+    def update_var(self, name: str, value: str, line: int, col: int):
         if name not in self.var_dict:
             if name in self.const_dict:
-                raise RuntimeError(f'赋值错误，因为是常量： {name}')
+                raise RuntimeError(f'赋值错误，因为是常量： {name}, at line {line}')
             else:
-                raise RuntimeError(f'未定义的变量：{name}')
+                raise RuntimeError(f'未定义的变量：{name}, at line {line}')
         self.var_dict[name] = value
 
     # 为常量字典添加元素
@@ -120,7 +120,8 @@ class PL0Parser:
             # print("现在获取下一个字符是：", self.current_token.value)
         else:
             # 处理错误，可以输出错误信息或进行其他错误处理
-            raise RuntimeError(f"Unexpected token: {self.current_token.type}. Expected: {expected_type}")
+            raise RuntimeError(f"Unexpected token: {self.current_token.type}. Expected: {expected_type}"
+                               f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
             pass
 
     # <程序>-><程序首部><分程序>
@@ -221,7 +222,7 @@ class PL0Parser:
 
         # 匹配结尾的分号
         if self.current_token.type != TokenType.SEMICOLONSYM:
-            raise RuntimeError(f"变量说明缺少分号 at line {self.pre_token_info.line},col {self.pre_token_info.col + 1}")
+            raise RuntimeError(f"变量说明缺少分号 at line {self.pre_token_info.line}, col {self.pre_token_info.col + 1}")
         else:
             self.match(TokenType.SEMICOLONSYM)
 
@@ -247,7 +248,7 @@ class PL0Parser:
             self.match(TokenType.ENDSYM)  # 匹配关键字 END
         elif self.current_token.type != TokenType.ENDSYM and self.current_token.type != TokenType.SEMICOLONSYM:
             # self.raise_syntax_error("复合语句缺少分号")
-            raise RuntimeError(f"复合语句缺少分号 at line {self.pre_token_info.line}, {self.pre_token_info.col + 1}")
+            raise RuntimeError(f"复合语句缺少分号 at line {self.pre_token_info.line}, col {self.pre_token_info.col + 1}")
         else:
             raise RuntimeError(f"复合语句格式错误:缺少END")
 
@@ -267,7 +268,7 @@ class PL0Parser:
         elif current_token_type == TokenType.SEMICOLONSYM or current_token_type == TokenType.ENDSYM:
             pass
         else:
-            raise RuntimeError(f"无法识别该语句种类")
+            raise RuntimeError(f"无法识别该语句种类 at line {self.lexer.get_line()}")
 
     # <赋值语句> -> <标识符> := <表达式>
     # 赋值语句 需要进行中间代码生成
@@ -277,8 +278,10 @@ class PL0Parser:
         self.match(TokenType.BECOMESSYM)  # 匹配 :=
         value = self.expression()  # 匹配表达式
 
+        line = self.pre_token_info.line
+        col = self.pre_token_info.col
         # 语义处理部分
-        self.inter_code_gen.update_var(name, value)
+        self.inter_code_gen.update_var(name, value, line, col)
         self.inter_code_gen.emit(':=', arg1=value, arg2=None, result=name)
         # print(1111)
 
@@ -340,11 +343,13 @@ class PL0Parser:
             # 错误处理：检查变量是否定义
             var_name = self.current_token.value
             if var_name not in self.inter_code_gen.var_dict:
-                raise RuntimeError(f"未定义的变量：{var_name}")
+                raise RuntimeError(f"未定义的变量：{var_name}"
+                                   f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
 
             # 检查变量是否已赋值
             if self.inter_code_gen.var_dict[var_name] == '':
-                raise RuntimeError(f"变量 '{var_name}' 在使用前未被赋值")
+                raise RuntimeError(f"变量 '{var_name}' 在使用前未被赋值"
+                                   f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
             # print("name:"+name)
             fac = self.identifier()
         elif self.current_token.type == TokenType.NUMBER:
@@ -361,7 +366,7 @@ class PL0Parser:
             # 处理错误或报告问题
             # raise SyntaxError("缺少因子或因子格式错误", self.token_info.line, self.token_info.col)
             raise RuntimeError(
-                f"缺少因子或因子格式错误at line {self.pre_token_info.line},col {self.pre_token_info.col + 1}")
+                f"缺少因子或因子格式错误at line {self.pre_token_info.line}, col {self.pre_token_info.col + 1}")
             pass
 
         return fac  # 返回因子的值
@@ -430,7 +435,7 @@ class PL0Parser:
         else:
             # 处理错误或报告问题
             # self.raise_syntax_error("非法的关系运算符")
-            raise RuntimeError(f"非法的关系运算符 at line {self.lexer.get_line()},col {self.lexer.get_col() - 1}")
+            raise RuntimeError(f"非法的关系运算符 at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
             pass
 
         return op
