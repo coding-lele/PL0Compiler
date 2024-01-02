@@ -116,6 +116,11 @@ class PL0Lexer:
             op += self.current_char
             self.get_next_char()
 
+        elif self.current_char == '>':
+            if op == '<':
+                op += self.current_char
+                self.get_next_char()
+
         # 根据关系运算符返回对应的 TokenType
         relational_operators = {
             '=': TokenType.EQLSYM,
