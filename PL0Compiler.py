@@ -246,6 +246,7 @@ class PL0Parser:
         # 检查当前符号的类型并调用相应的函数
         if current_token_type == TokenType.IDENT:
             self.assignment_statement()
+
         elif current_token_type == TokenType.IFSYM:
             self.conditional_statement()
         elif current_token_type == TokenType.WHILESYM:
@@ -381,7 +382,6 @@ class PL0Parser:
         self.match(TokenType.WHILESYM)  # 匹配关键字 WHILE
         # 这是循环开始的位置
         self.inter_code_gen.while_stack.append(self.inter_code_gen.line_counter)  # 记录循环开始的行
-
         self.condition("WHILE")  # 解析条件
         self.match(TokenType.DOSYM)  # 匹配关键字 DO
         self.statements()  # 解析语句
@@ -429,6 +429,8 @@ if __name__ == "__main__":
 
     parser = PL0Parser(filename)
     parser.parse()
+    if parser.current_token.type != 27:
+        raise RuntimeError(f"程序结尾存在非法语句")
     print("result:")
     print(parser.inter_code_gen)
 
