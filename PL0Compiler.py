@@ -340,16 +340,23 @@ class PL0Parser:
     # < 因子 > -> < 标识符 > | < 无符号整数 > | (< 表达式 >)
     def factor(self):
         if self.current_token.type == TokenType.IDENT:
+            flag_var = 0
             # 错误处理：检查变量是否定义
             var_name = self.current_token.value
             if var_name not in self.inter_code_gen.var_dict:
-                raise RuntimeError(f"未定义的变量：{var_name}"
-                                   f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
+                flag_var = 1  # 如果不在变量字典中则判断是否在常量字典中
+                # raise RuntimeError(f"未定义的变量：{var_name}"
+                #                    f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
 
-            # 检查变量是否已赋值
-            if self.inter_code_gen.var_dict[var_name] == '':
-                raise RuntimeError(f"变量 '{var_name}' 在使用前未被赋值"
-                                   f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
+            if flag_var == 1:
+                if var_name not in self.inter_code_gen.const_dict:  # 如果不在常量字典中
+                    raise RuntimeError(f"未定义的变量：{var_name}"
+                                       f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
+            else:
+                # 检查变量是否已赋值
+                if self.inter_code_gen.var_dict[var_name] == '':
+                    raise RuntimeError(f"变量 '{var_name}' 在使用前未被赋值"
+                                       f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
             # print("name:"+name)
             fac = self.identifier()
         elif self.current_token.type == TokenType.NUMBER:
