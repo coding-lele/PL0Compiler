@@ -430,7 +430,7 @@ if __name__ == "__main__":
     parser = PL0Parser(filename)
     parser.parse()
     if parser.current_token.type != 27:
-        raise RuntimeError(f"程序结尾存在非法语句")
+        raise RuntimeError(f"程序结尾存在非法语句或字符")
     print("result:")
     print(parser.inter_code_gen)
 
