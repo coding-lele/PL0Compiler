@@ -51,6 +51,8 @@ class InterCodeGen:
     def add_var(self, name: str):
         if name in self.var_dict:
             raise RuntimeError(f'该变量已存在，重复定义： {name}')
+        if name in self.const_dict:
+            raise RuntimeError(f'{name} 为常量，无法重复定义为变量')
         self.var_dict[name] = ''
 
     # 更新变量字典
@@ -91,7 +93,6 @@ class pre_Token:
 class PL0Parser:
     def __init__(self, filename):
         self.lexer = PL0Lexer(filename)  # 创建词法分析器实例
-        # self.previous = self.lexer.get_next_token()  # 上一个词法单元
         self.token_info = pre_Token()  # 创建实例
         self.pre_token_info = pre_pre_Token()  # 创建实例
         self.current_token = self.lexer.get_next_token()  # 当前词法单元
@@ -107,15 +108,10 @@ class PL0Parser:
     # 匹配当前词法单元，并将 currentIndex 移至下一个单元
     def match(self, expected_type):
         if self.current_token and self.current_token.type == expected_type:
-            # print("self.current_token.type: ", self.current_token.type)
-            # print("expected_type: ", expected_type)
-            # if self.current_index < len(self.token_list) - 1:  # 读到最后一句时指针不再后移
-            #     self.current_index += 1
             self.pre_token_info.line = self.token_info.line
             self.pre_token_info.col = self.token_info.col
             self.token_info.line = self.lexer.get_line()
             self.token_info.col = self.lexer.get_col()
-            # self.previous = self.current_token
             self.current_token = self.lexer.get_next_token()  # 读取下一个词法单元。如果读完文件，current_token的值为False
             # print("现在获取下一个字符是：", self.current_token.value)
         else:
@@ -135,7 +131,6 @@ class PL0Parser:
     def program_header(self):
         # 匹配关键字 PROGRAM
         self.match(TokenType.PROGRAMSYM)  # 否则缺少关键字
-        # 在这里直接识别标识符 还是调用identifier()呢 可以调用但没必要 算了
         # 匹配标识符
         self.match(TokenType.IDENT)  # 否则缺少标识符
 
@@ -170,7 +165,6 @@ class PL0Parser:
         else:
             raise RuntimeError(
                 f"常量说明缺少分号 at line {self.pre_token_info.line}, col {self.pre_token_info.col + 1}")
-            # self.raise_syntax_error("常量说明缺少分号")
 
     # 新增修改 常量定义的等号是赋值符号
     # <常量定义> -> <标识符> := <无符号整数>
@@ -189,7 +183,6 @@ class PL0Parser:
     # <无符号整数> -> <数字>{<数字>}
     def unsigned_integer(self):
         # 匹配第一个数字
-        # print("当前数字：" + self.current_token.value)
         number = self.current_token.value
         self.match(TokenType.NUMBER)
 
@@ -207,16 +200,13 @@ class PL0Parser:
         # 匹配第一个标识符
         name = self.identifier()
         # 打印定义的变量
-        # print("VAR:" + last_var_name)
-        # yuyi 定义变量字典
+        # 语义 定义变量字典
         self.inter_code_gen.add_var(name)
 
         # 循环解析额外的标识符(如果有的话)
         while self.current_token.type == TokenType.COMMASYM:
             self.match(TokenType.COMMASYM)  # 匹配逗号
-            # last_var_name = self.current_token.value
             name = self.identifier()  # 匹配标识符
-            # print("VAR:" + last_var_name)
             # yuyi 定义变量字典
             self.inter_code_gen.add_var(name)
 
@@ -229,7 +219,6 @@ class PL0Parser:
     # <标识符> -> <字母>{<字母> | <数字>}
     def identifier(self):
         # 匹配第一个字母
-        # print("当前标识符名称：" + self.current_token.value)
         ident = self.current_token.value
         self.match(TokenType.IDENT)
         return ident
@@ -247,7 +236,6 @@ class PL0Parser:
         if self.current_token.type == TokenType.ENDSYM:
             self.match(TokenType.ENDSYM)  # 匹配关键字 END
         elif self.current_token.type != TokenType.ENDSYM and self.current_token.type != TokenType.SEMICOLONSYM:
-            # self.raise_syntax_error("复合语句缺少分号")
             raise RuntimeError(f"复合语句缺少分号 at line {self.pre_token_info.line}, col {self.pre_token_info.col + 1}")
         else:
             raise RuntimeError(f"复合语句格式错误:缺少END")
@@ -265,7 +253,7 @@ class PL0Parser:
         elif current_token_type == TokenType.BEGINSYM:
             self.compound_statement()
         # 处理 <空语句>
-        elif current_token_type == TokenType.SEMICOLONSYM or current_token_type == TokenType.ENDSYM:
+        elif current_token_type == TokenType.SEMICOLONSYM or current_token_type == TokenType.ENDSYM or current_token_type == TokenType.EOF:
             pass
         else:
             raise RuntimeError(f"无法识别该语句种类 at line {self.lexer.get_line()}")
@@ -273,7 +261,6 @@ class PL0Parser:
     # <赋值语句> -> <标识符> := <表达式>
     # 赋值语句 需要进行中间代码生成
     def assignment_statement(self):
-        # var_name = self.current_token.value  # 获取标识符的名称
         name = self.identifier()  # 匹配标识符
         self.match(TokenType.BECOMESSYM)  # 匹配 :=
         value = self.expression()  # 匹配表达式
@@ -283,7 +270,6 @@ class PL0Parser:
         # 语义处理部分
         self.inter_code_gen.update_var(name, value, line, col)
         self.inter_code_gen.emit(':=', arg1=value, arg2=None, result=name)
-        # print(1111)
 
     # <表达式> -> [+|-]项 | <表达式> <加法运算符> <项>
     def expression(self):
@@ -310,7 +296,6 @@ class PL0Parser:
         # 解析加法运算符
         while self.is_addition_operator(self.current_token.type):
             # 加减法语义入栈
-            # print("当前加法运算符:" + self.current_token.value)
             op = self.current_token.value
             self.match(self.current_token.type)
             arg = self.term()
@@ -326,7 +311,6 @@ class PL0Parser:
 
         while self.is_multiplication_operator(self.current_token.type):
             # 乘除法语义入栈
-            # print("当前乘法运算符:" + self.current_token.value)
             op = self.current_token.value
             self.match(self.current_token.type)
             fac = self.factor()
@@ -345,8 +329,6 @@ class PL0Parser:
             var_name = self.current_token.value
             if var_name not in self.inter_code_gen.var_dict:
                 flag_var = 1  # 如果不在变量字典中则判断是否在常量字典中
-                # raise RuntimeError(f"未定义的变量：{var_name}"
-                #                    f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
 
             if flag_var == 1:
                 if var_name not in self.inter_code_gen.const_dict:  # 如果不在常量字典中
@@ -357,21 +339,17 @@ class PL0Parser:
                 if self.inter_code_gen.var_dict[var_name] == '':
                     raise RuntimeError(f"变量 '{var_name}' 在使用前未被赋值"
                                        f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
-            # print("name:"+name)
             fac = self.identifier()
         elif self.current_token.type == TokenType.NUMBER:
-            # print("const")
             # 新增修改 数字需要匹配 而不是 直接词法
             fac = self.unsigned_integer()
         # 识别表达式
         elif self.current_token.type == TokenType.LPARENSYM:
-            # print("express")
             self.match(TokenType.LPARENSYM)
             fac = self.expression()
             self.match(TokenType.RPARENSYM)  # 否则缺少右括号
         else:
             # 处理错误或报告问题
-            # raise SyntaxError("缺少因子或因子格式错误", self.token_info.line, self.token_info.col)
             raise RuntimeError(
                 f"缺少因子或因子格式错误at line {self.pre_token_info.line}, col {self.pre_token_info.col + 1}")
             pass
@@ -436,12 +414,10 @@ class PL0Parser:
         if token_type in [TokenType.EQLSYM, TokenType.NEQSYM, TokenType.LESSYM, TokenType.LEQSYM, TokenType.GTRSYM,
                           TokenType.GEQSYM]:
             # 对关系运算符的栈语义处理
-            # print("当前关系运算符："+self.current_token.value)
             op = self.current_token.value
             self.match(token_type)
         else:
             # 处理错误或报告问题
-            # self.raise_syntax_error("非法的关系运算符")
             raise RuntimeError(f"非法的关系运算符 at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
             pass
 
