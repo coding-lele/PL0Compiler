@@ -67,8 +67,12 @@ class PL0Lexer:
         if identifier in self.keywords:
             return Token(self.keywords.index(identifier), identifier)
         else:
-            # 不是关键字，是标识符
-            return Token(TokenType.IDENT, identifier)
+            if identifier.islower():
+                # 不是关键字，且全为小写字母和数字是标识符
+                return Token(TokenType.IDENT, identifier)
+            else:
+                # 不是关键字，但包含大写字母，是未定义词法单元
+                return Token(TokenType.ERROR, identifier)
 
     # 识别整数
     def scan_number(self):
