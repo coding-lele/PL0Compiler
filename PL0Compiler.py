@@ -116,7 +116,8 @@ class PL0Parser:
             # print("现在获取下一个字符是：", self.current_token.value)
         else:
             # 处理错误，可以输出错误信息或进行其他错误处理
-            raise RuntimeError(f"Unexpected token: {self.current_token.type}. Expected: {expected_type}"
+            raise RuntimeError(f"Unexpected token: {TokenTypeName[self.current_token.type]}. "
+                               f"Expected: {TokenTypeName[expected_type]}"
                                f", at line {self.lexer.get_line()}, col {self.lexer.get_col() - 1}")
             pass
 
